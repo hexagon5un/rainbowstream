@@ -7,6 +7,7 @@ import time
 import threading
 import requests
 import webbrowser
+import traceback
 
 from twitter.stream import TwitterStream, Timeout, HeartbeatTimeout, Hangup
 from twitter.api import *
@@ -21,6 +22,7 @@ from .consumer import *
 from .interactive import *
 from .c_image import *
 from .py3patch import *
+from .emoji import *
 
 # Global values
 g = {}
@@ -50,6 +52,11 @@ def parse_arguments():
         '-ig',
         '--ignore',
         help='Ignore specific screen_name.')
+    parser.add_argument(
+        '-dg',
+        '--debug',
+        action='store_true',
+        help='Run in debug mode.')
     parser.add_argument(
         '-iot',
         '--image-on-term',
@@ -108,6 +115,14 @@ def build_mute_dict(dict_data=False):
         return screen_name_list
 
 
+def debug_option():
+    """
+    Save traceback when run in debug mode
+    """
+    if g['debug']:
+        g['traceback'].append(traceback.format_exc())
+
+
 def init(args):
     """
     Init function
@@ -122,6 +137,8 @@ def init(args):
     name = credential['name']
     if not get_config('PREFIX'):
         set_config('PREFIX', screen_name)
+    c['PREFIX'] = emojize(c['PREFIX'])
+    g['PREFIX'] = u2str(c['PREFIX'])
     c['original_name'] = g['original_name'] = screen_name[1:]
     g['full_name'] = name
     g['decorated_name'] = lambda x: color_func(
@@ -132,8 +149,15 @@ def init(args):
     g['themes'] = themes
     g['pause'] = False
     g['message_threads'] = {}
+    # Events
+    g['events'] = []
     # Startup cmd
     g['cmd'] = ''
+    # Debug option
+    g['debug'] = args.debug
+    g['traceback'] = []
+    # Retweet of mine events
+    c['events'] = []
     # Semaphore init
     c['lock'] = False
     # Init tweet dict and message dict
@@ -195,6 +219,19 @@ def home():
     printNicely('')
 
 
+def notification():
+    """
+    Show notifications
+    """
+    g['events'] = g['events'] + c['events']
+    if g['events']:
+        for e in g['events']:
+            print_event(e)
+        printNicely('')
+    else:
+        printNicely(magenta('Nothing at this time.'))
+
+
 def mentions():
     """
     Mentions timeline
@@ -221,7 +258,8 @@ def whois():
                 include_entities=False)
             show_profile(user)
         except:
-            printNicely(red('Omg no user.'))
+            debug_option()
+            printNicely(red('No user.'))
     else:
         printNicely(red('A name should begin with a \'@\''))
 
@@ -249,13 +287,24 @@ def search():
     Search
     """
     t = Twitter(auth=authen())
-    g['stuff'] = g['stuff'].strip()
-    rel = t.search.tweets(q=g['stuff'])['statuses']
+    # Setup query
+    query = g['stuff'].strip()
+    type = c['SEARCH_TYPE']
+    if type not in ['mixed', 'recent', 'popular']:
+        type = 'mixed'
+    max_record = c['SEARCH_MAX_RECORD']
+    count = min(max_record, 100)
+    # Perform search
+    rel = t.search.tweets(
+        q=query,
+        type=type,
+        count=count
+    )['statuses']
+    # Return results
     if rel:
         printNicely('Newest tweets:')
-        for i in reversed(xrange(c['SEARCH_MAX_RECORD'])):
-            draw(t=rel[i],
-                 keyword=g['stuff'])
+        for i in reversed(xrange(count)):
+            draw(t=rel[i], keyword=query)
         printNicely('')
     else:
         printNicely(magenta('I\'m afraid there is no result'))
@@ -448,6 +497,7 @@ def show():
             img = Image.open(BytesIO(res.content))
             img.show()
     except:
+        debug_option()
         printNicely(red('Sorry I can\'t show this image.'))
 
 
@@ -461,16 +511,16 @@ def urlopen():
             return
         tid = c['tweet_dict'][int(g['stuff'])]
         tweet = t.statuses.show(id=tid)
-        link_ary = [
-            u for u in tweet['text'].split() if u.startswith('http://')]
-        link_ary.extend([
-            u for u in tweet['text'].split() if u.startswith('https://')])
+        link_prefix = ('http://', 'https://')
+        link_ary = [u for u in tweet['text'].split()
+                    if u.startswith(link_prefix)]
         if not link_ary:
             printNicely(light_magenta('No url here @.@!'))
             return
         for link in link_ary:
             webbrowser.open(link)
     except:
+        debug_option()
         printNicely(red('Sorry I can\'t open url in this tweet.'))
 
 
@@ -552,6 +602,7 @@ def thread():
             g['original_name'],
             g['full_name'])
     except Exception:
+        debug_option()
         printNicely(red('No such thread.'))
 
 
@@ -572,6 +623,7 @@ def message():
         else:
             printNicely(red('A name should begin with a \'@\''))
     except:
+        debug_option()
         printNicely(red('Sorry I can\'t understand.'))
 
 
@@ -680,6 +732,7 @@ def mute():
             else:
                 printNicely(red(rel))
         except:
+            debug_option()
             printNicely(red('Something is wrong, can not mute now :('))
     else:
         printNicely(red('A name should begin with a \'@\''))
@@ -878,6 +931,7 @@ def list_add(t):
             screen_name=user_name)
         printNicely(green('Added.'))
     except:
+        debug_option()
         printNicely(light_magenta('I\'m sorry we can not add him/her.'))
 
 
@@ -897,6 +951,7 @@ def list_remove(t):
             screen_name=user_name)
         printNicely(green('Gone.'))
     except:
+        debug_option()
         printNicely(light_magenta('I\'m sorry we can not remove him/her.'))
 
 
@@ -912,6 +967,7 @@ def list_subscribe(t):
             owner_screen_name=owner)
         printNicely(green('Done.'))
     except:
+        debug_option()
         printNicely(
             light_magenta('I\'m sorry you can not subscribe to this list.'))
 
@@ -928,6 +984,7 @@ def list_unsubscribe(t):
             owner_screen_name=owner)
         printNicely(green('Done.'))
     except:
+        debug_option()
         printNicely(
             light_magenta('I\'m sorry you can not unsubscribe to this list.'))
 
@@ -964,6 +1021,7 @@ def list_new(t):
             description=description)
         printNicely(green(name + ' list is created.'))
     except:
+        debug_option()
         printNicely(red('Oops something is wrong with Twitter :('))
 
 
@@ -991,6 +1049,7 @@ def list_update(t):
                 description=description)
         printNicely(green(slug + ' list is updated.'))
     except:
+        debug_option()
         printNicely(red('Oops something is wrong with Twitter :('))
 
 
@@ -1005,6 +1064,7 @@ def list_delete(t):
             owner_screen_name=g['original_name'])
         printNicely(green(slug + ' list is deleted.'))
     except:
+        debug_option()
         printNicely(red('Oops something is wrong with Twitter :('))
 
 
@@ -1215,6 +1275,8 @@ def help_discover():
         light_green('trend JP Tokyo') + '.\n'
     usage += s * 2 + light_green('home') + ' will show your timeline. ' + \
         light_green('home 7') + ' will show 7 tweets.\n'
+    usage += s * 2 + \
+        light_green('notification') + ' will show your recent notification.\n'
     usage += s * 2 + light_green('mentions') + ' will show mentions timeline. ' + \
         light_green('mentions 7') + ' will show 7 mention tweets.\n'
     usage += s * 2 + light_green('whois @mdo') + ' will show profile  of ' + \
@@ -1524,6 +1586,7 @@ cmdset = [
     'switch',
     'trend',
     'home',
+    'notification',
     'view',
     'mentions',
     't',
@@ -1568,6 +1631,7 @@ funcset = [
     switch,
     trend,
     home,
+    notification,
     view,
     mentions,
     tweet,
@@ -1625,6 +1689,7 @@ def listen():
             ['public', 'mine'],  # switch
             [],  # trend
             [],  # home
+            [],  # notification
             ['@'],  # view
             [],  # mentions
             [],  # tweet
@@ -1690,7 +1755,8 @@ def listen():
         try:
             # raw_input
             if g['prefix']:
-                line = raw_input(g['decorated_name'](c['PREFIX']))
+                # Only use PREFIX as a string with raw_input
+                line = raw_input(g['decorated_name'](g['PREFIX']))
             else:
                 line = raw_input()
             # Save cmd to compare with readline buffer
@@ -1716,6 +1782,7 @@ def listen():
         except EOFError:
             printNicely('')
         except Exception:
+            debug_option()
             printNicely(red('OMG something is wrong with Twitter right now.'))
 
 
@@ -1814,6 +1881,9 @@ def stream(domain, args, name='Rainbow Stream'):
                 while c['lock']:
                     time.sleep(0.5)
                 print_message(tweet['direct_message'])
+            elif tweet.get('event'):
+                g['events'].append(tweet)
+                print_event(tweet)
     except TwitterHTTPError:
         printNicely('')
         printNicely(

@@ -37,6 +37,12 @@ Examples are available in
         "keyword"         : "on_light_green"
     },
 
+    "NOTIFICATION":{
+        "source_nick"   : 112,
+        "notify"        : 179,
+        "clock"         : 57
+    },
+
     "MESSAGE" : {
         "partner"       : 112,
         "me"            : 112,
@@ -134,7 +140,8 @@ Color reference can be found at
   * Color selection is cycle through this list but with _memoization_.
   * It's means that same names will appear in same colors.
 * `TWEET`: colors of parts in a tweet's ouput.
-  * `nick` : color for Twitter __username__.
+  * `mynick` : color for your Twitter __username__.
+  * `nick` : color for other Twitter __username__.
   * `clock`: color for time of tweet.
   * `id`: color for tweet's id.
   * `favorite`: color for the star symbol when a tweet is favorited by you.
@@ -145,6 +152,10 @@ Color reference can be found at
   * `hashtag`: color for a hashtag.
   * `mytweet`: color for tweet's text from yourself.
   * `keyword`: color for highlighted keyword (in tweets search).
+* `NOTIFICATION`: colors of notification events.
+  * `source_nick`: color for user's __username__.
+  * `notify`: color for notification message.
+  * `clock`: color for time of notification event.
 * `MESSAGE`: colors of parts in message's output.
   * `partner`: color for __partner__.
   * `me`: color for __authenticated user__.

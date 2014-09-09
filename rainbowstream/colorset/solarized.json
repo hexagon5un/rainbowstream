@@ -23,6 +23,7 @@
     "DECORATED_NAME" : 64,
     "CYCLE_COLOR" :[124,32,64,66,130,23],
     "TWEET" : {
+        "mynick"          : 66,
         "nick"            : 64,
         "clock"           : 32,
         "id"              : 130,
@@ -34,6 +35,12 @@
         "hashtag"         : 64,
         "mytweet"         : 66,
         "keyword"         : "on_light_green"
+    },
+
+    "NOTIFICATION":{
+        "source_nick"   : 64,
+        "notify"        : 66,
+        "clock"         : 32
     },
 
     "MESSAGE" : {
